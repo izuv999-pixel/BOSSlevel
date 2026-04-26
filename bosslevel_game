@@ -10,6 +10,7 @@ pygame.display.set_caption("BOSS RUSH by _PINGO")
 clock = pygame.time.Clock()
 
 # Цвета
+??? = (99, 99, 99)
 BLACK = (5, 5, 10)
 WHITE = (255, 255, 255)
 RED = (220, 20, 60)
