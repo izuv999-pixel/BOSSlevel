@@ -1,0 +1,226 @@
+import pygame
+import math
+import random
+
+# Инициализация
+pygame.init()
+WIDTH, HEIGHT = 1000, 800
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("BOSS RUSH by _PINGO")
+clock = pygame.time.Clock()
+
+# Цвета
+BLACK = (5, 5, 10)
+WHITE = (255, 255, 255)
+RED = (220, 20, 60)
+CYAN = (0, 255, 255)
+GOLD = (255, 215, 0)
+PURPLE = (138, 43, 226)
+GRAY = (40, 40, 45)
+GREEN = (50, 255, 50)
+
+# Шрифты (используем стандартный, если Arial недоступен)
+font_btn = pygame.font.SysFont("Arial", 20)
+font_title = pygame.font.SysFont("Arial", 70, bold=True)
+font_desc = pygame.font.SysFont("Arial", 16)
+
+class Button:
+    def __init__(self, x, y, w, h, text, color):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.text = text
+        self.color = color
+        self.hover = False
+
+    def draw(self, surf):
+        # В версии 1.9.6 нет border_radius, рисуем обычные прямоугольники
+        c = self.color
+        if self.hover:
+            c = (min(self.color[0]+40, 255), min(self.color[1]+40, 255), min(self.color[2]+40, 255))
+        
+        pygame.draw.rect(surf, c, self.rect)
+        pygame.draw.rect(surf, WHITE, self.rect, 2)
+        
+        txt = font_btn.render(self.text, True, WHITE)
+        surf.blit(txt, (self.rect.centerx - txt.get_width()//2, self.rect.centery - txt.get_height()//2))
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, char_type):
+        pygame.sprite.Sprite.__init__(self)
+        self.char_type = char_type
+        self.image = pygame.Surface((50, 50))
+        self.image.set_colorkey((0,0,0)) # Прозрачный фон
+        self.rect = self.image.get_rect(center=(WIDTH//2, HEIGHT-100))
+        
+        stats = {
+            "SPEEDSTER": {"hp": 100, "dmg": 35, "spd": 10, "color": CYAN},
+            "TANK":      {"hp": 300, "dmg": 15, "spd": 4,  "color": GOLD},
+            "BERSERK":   {"hp": 180, "dmg": 50, "spd": 6,  "color": RED},
+            "GHOST":     {"hp": 80,  "dmg": 25, "spd": 12, "color": GREEN}
+        }
+        s = stats[char_type]
+        self.hp = self.max_hp = s["hp"]
+        self.damage = s["dmg"]
+        self.speed = s["spd"]
+        self.color = s["color"]
+        self.money = 0
+
+    def update(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT] and self.rect.left > 0: self.rect.x -= self.speed
+        if keys[pygame.K_RIGHT] and self.rect.right < WIDTH: self.rect.x += self.speed
+        if keys[pygame.K_UP] and self.rect.top > 400: self.rect.y -= self.speed
+        if keys[pygame.K_DOWN] and self.rect.bottom < HEIGHT: self.rect.y += self.speed
+        
+        self.image.fill((0,0,0))
+        pygame.draw.circle(self.image, self.color, (25, 25), 20)
+        pygame.draw.circle(self.image, WHITE, (25, 25), 22, 2)
+
+class Boss(pygame.sprite.Sprite):
+    def __init__(self, level, difficulty):
+        pygame.sprite.Sprite.__init__(self)
+        self.level = level
+        mult = {"Easy": 0.6, "Normal": 1.0, "HARDCORE": 3.5}[difficulty]
+        self.hp = self.max_hp = int((600 * level) * mult)
+        self.image = pygame.Surface((300, 300))
+        self.image.set_colorkey((0,0,0))
+        self.rect = self.image.get_rect(center=(WIDTH//2, 220))
+        self.timer = 0
+
+    def update(self):
+        self.timer += 0.05
+        self.image.fill((0,0,0))
+        cx, cy = 150, 150
+        if self.level == 1:
+            pygame.draw.circle(self.image, RED, (cx, cy), int(60 + math.sin(self.timer)*15), 5)
+        elif self.level == 2:
+            pygame.draw.rect(self.image, CYAN, (cx-70, cy-70, 140, 140), 4)
+            pygame.draw.circle(self.image, WHITE, (cx, cy), 20)
+        else:
+            for i in range(8):
+                r = int(70 + i*10 + math.sin(self.timer + i)*5)
+                pygame.draw.circle(self.image, PURPLE, (cx, cy), r, 2)
+        self.rect.x += math.sin(self.timer) * 5
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, angle, speed, color, dmg):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.Surface((12, 12))
+        self.image.set_colorkey((0,0,0))
+        pygame.draw.circle(self.image, color, (6, 6), 6)
+        self.rect = self.image.get_rect(center=(x, y))
+        self.vx, self.vy = math.cos(angle)*speed, math.sin(angle)*speed
+        self.dmg = dmg
+
+    def update(self):
+        self.rect.x += int(self.vx)
+        self.rect.y += int(self.vy)
+        if self.rect.bottom < 0 or self.rect.top > HEIGHT or self.rect.left < 0 or self.rect.right > WIDTH:
+            self.kill()
+
+def game_loop(char, diff):
+    p = Player(char)
+    boss_lvl = 1
+    boss = Boss(boss_lvl, diff)
+    all_sprites = pygame.sprite.Group()
+    all_sprites.add(p)
+    all_sprites.add(boss)
+    p_bullets = pygame.sprite.Group()
+    e_bullets = pygame.sprite.Group()
+    
+    e_spd_m = {"Easy": 0.7, "Normal": 1.0, "HARDCORE": 2.0}[diff]
+
+    running = True
+    while running:
+        screen.fill(BLACK)
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT: return "QUIT"
+            if ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_SPACE:
+                    b = Bullet(p.rect.centerx, p.rect.top, -math.pi/2, 14, p.color, p.damage)
+                    p_bullets.add(b)
+                    all_sprites.add(b)
+                if ev.key == pygame.K_p and p.money >= 100:
+                    p.money -= 100
+                    p.damage += 5
+                    p.hp = p.max_hp
+
+        if random.random() < 0.06:
+            angle = random.uniform(0.5, 2.5) # Направление вниз
+            eb = Bullet(boss.rect.centerx, boss.rect.bottom, angle, 6*e_spd_m, RED, 15)
+            e_bullets.add(eb)
+            all_sprites.add(eb)
+
+        # Коллизии
+        hits = pygame.sprite.spritecollide(boss, p_bullets, True)
+        for hit in hits:
+            boss.hp -= p.damage
+            p.money += 2
+            if boss.hp <= 0:
+                boss_lvl += 1
+                if boss_lvl > 3: return "WIN"
+                boss.kill()
+                boss = Boss(boss_lvl, diff)
+                all_sprites.add(boss)
+
+        if pygame.sprite.spritecollide(p, e_bullets, True):
+            p.hp -= 20
+            if p.hp <= 0: return "LOSE"
+
+        all_sprites.update()
+        all_sprites.draw(screen)
+        
+        # UI
+        pygame.draw.rect(screen, (50, 0, 0), (20, 20, 200, 20))
+        pygame.draw.rect(screen, RED, (20, 20, int((float(p.hp)/p.max_hp)*200), 20))
+        
+        pygame.draw.rect(screen, (30, 30, 30), (WIDTH//2-200, 20, 400, 10))
+        pygame.draw.rect(screen, PURPLE, (WIDTH//2-200, 20, int((float(boss.hp)/boss.max_hp)*400), 10))
+        
+        txt = font_btn.render("GOLD: " + str(p.money) + " | LVL: " + str(boss_lvl), True, WHITE)
+        screen.blit(txt, (20, 50))
+        
+        pygame.display.flip()
+        clock.tick(60)
+
+def main_menu():
+    diff, char = "Normal", "SPEEDSTER"
+    chars = ["SPEEDSTER", "TANK", "BERSERK", "GHOST"]
+    diffs = ["Easy", "Normal", "HARDCORE"]
+    
+    b_start = Button(WIDTH//2-150, 520, 300, 70, "START GAME", RED)
+    b_char = Button(WIDTH//2-150, 350, 300, 50, "HERO: SPEEDSTER", GRAY)
+    b_diff = Button(WIDTH//2-150, 420, 300, 50, "DIFF: Normal", GRAY)
+
+    while True:
+        screen.fill(BLACK)
+        m_pos = pygame.mouse.get_pos()
+        
+        title = font_title.render("BOSS RUSH", True, WHITE)
+        screen.blit(title, (WIDTH//2-title.get_width()//2, 80))
+        
+        dev = font_desc.render("Developer: _PINGO", True, CYAN)
+        screen.blit(dev, (WIDTH//2-dev.get_width()//2, 180))
+
+        for b in [b_start, b_char, b_diff]:
+            b.hover = b.rect.collidepoint(m_pos)
+            b.draw(screen)
+
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                return
+            if ev.type == pygame.MOUSEBUTTONDOWN:
+                if b_char.rect.collidepoint(m_pos):
+                    char = chars[(chars.index(char)+1)%len(chars)]
+                    b_char.text = "HERO: " + char
+                if b_diff.rect.collidepoint(m_pos):
+                    diff = diffs[(diffs.index(diff)+1)%len(diffs)]
+                    b_diff.text = "DIFF: " + diff
+                if b_start.rect.collidepoint(m_pos):
+                    game_loop(char, diff)
+        
+        pygame.display.flip()
+        clock.tick(60)
+
+if __name__ == "__main__":
+    main_menu()
