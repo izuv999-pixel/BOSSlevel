@@ -186,7 +186,7 @@ def game_loop(char, diff):
 def main_menu():
     diff, char = "Normal", "SPEEDSTER"
     chars = ["SPEEDSTER", "TANK", "BERSERK", "GHOST"]
-    diffs = ["Easy", "Normal", "HARDCORE"]
+    diffs = ["Easy", "Normal", "HARDCORE_PG"]
     
     b_start = Button(WIDTH//2-150, 520, 300, 70, "START GAME", RED)
     b_char = Button(WIDTH//2-150, 350, 300, 50, "HERO: SPEEDSTER", GRAY)
