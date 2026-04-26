@@ -128,7 +128,7 @@ def game_loop(char, diff):
     e_bullets = pygame.sprite.Group()
     
     e_spd_m = {"Easy": 0.7, "Normal": 1.0, "HARDCORE": 2.0}[diff]
-
+#Создание Экрана:
     running = True
     while running:
         screen.fill(BLACK)
