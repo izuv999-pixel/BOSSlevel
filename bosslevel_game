@@ -1,7 +1,7 @@
 import pygame
 import math
 import random
-
+#gugugaga
 # Инициализация
 pygame.init()
 WIDTH, HEIGHT = 1000, 800
